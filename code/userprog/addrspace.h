@@ -47,8 +47,8 @@ class AddrSpace {
 };
 
 enum AlgoFlag {
-  LRU,
-  FIFO,
+  MemFIFO,
+  MemLRU,
 };
 
 class MemoryManager {
