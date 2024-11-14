@@ -1,6 +1,6 @@
-// main.cc 
-//	Driver code to initialize, selftest, and run the 
-//	operating system kernel.  
+// main.cc
+//	Driver code to initialize, selftest, and run the
+//	operating system kernel.
 //
 // Usage: nachos -u -z -d <debugflags> ...
 //   -u prints entire set of legal flags
@@ -11,7 +11,7 @@
 //  incorrect flag usage is not caught.
 //
 // Copyright (c) 1992-1996 The Regents of the University of California.
-// All rights reserved.  See copyright.h for copyright notice and limitation 
+// All rights reserved.  See copyright.h for copyright notice and limitation
 // of liability and disclaimer of warranty provisions.
 
 #define MAIN
@@ -30,24 +30,24 @@ Debug *debug;
 //	Delete kernel data structures; called when user hits "ctl-C".
 //----------------------------------------------------------------------
 
-static void 
-Cleanup(int x) 
-{     
+static void
+Cleanup(int x)
+{
     cerr << "\nCleaning up after signal " << x << "\n";
-    delete kernel; 
+    delete kernel;
 }
 
 
 //----------------------------------------------------------------------
 // main
-// 	Bootstrap the operating system kernel.  
-//	
+// 	Bootstrap the operating system kernel.
+//
 //	Initialize kernel data structures
 //	Call selftest procedure
 //	Run the kernel
 //
 //	"argc" is the number of command line arguments (including the name
-//		of the command) -- ex: "nachos -d +" -> argc = 3 
+//		of the command) -- ex: "nachos -d +" -> argc = 3
 //	"argv" is an array of strings, one for each command line argument
 //		ex: "nachos -d +" -> argv = {"nachos", "-d", "+"}
 //----------------------------------------------------------------------
@@ -59,6 +59,7 @@ main(int argc, char **argv)
     char *debugArg = "";
 
     // before anything else, initialize the debugging system
+    // 這裡只是解析 Debug flag
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-d") == 0) {
 	    ASSERT(i + 1 < argc);   // next argument is debug string
@@ -71,17 +72,21 @@ main(int argc, char **argv)
 	}
     }
     debug = new Debug(debugArg);
-    
+
     DEBUG(dbgThread, "Entering main");
 
+    // 這裡才是重點，上面其實都只是些真正執行系統時沒必要的東西
+    #ifdef USER_PROGRAM
+    std::cout << "Set -DUSER_PROGRAM Macro" << std::endl; // 如果有設定 USER_PROGRAM Macro，就會印出提示
+    #endif
     kernel = new KernelType(argc, argv);
     kernel->Initialize();
-    
+
     CallOnUserAbort(Cleanup);		// if user hits ctl-C
 
     kernel->SelfTest();
     kernel->Run();
-    
+
     return 0;
 }
 

@@ -1,9 +1,9 @@
-// addrspace.cc 
+// addrspace.cc
 //	Routines to manage address spaces (executing user programs).
 //
 //	In order to run a user program, you must:
 //
-//	1. link with the -n -T 0 option 
+//	1. link with the -n -T 0 option
 //	2. run coff2noff to convert the object file to Nachos format
 //		(Nachos object code format is essentially just a simpler
 //		version of the UNIX executable object code format)
@@ -12,7 +12,7 @@
 //		don't need to do this last step)
 //
 // Copyright (c) 1992-1996 The Regents of the University of California.
-// All rights reserved.  See copyright.h for copyright notice and limitation 
+// All rights reserved.  See copyright.h for copyright notice and limitation
 // of liability and disclaimer of warranty provisions.
 
 #include "copyright.h"
@@ -23,7 +23,7 @@
 
 //----------------------------------------------------------------------
 // SwapHeader
-// 	Do little endian to big endian conversion on the bytes in the 
+// 	Do little endian to big endian conversion on the bytes in the
 //	object file header, in case the file was generated on a little
 //	endian machine, and we're now running on a big endian machine.
 //----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 
 bool AddrSpace::usedPhyPage[NumPhysPages] = {0};
 
-static void 
+static void
 SwapHeader (NoffHeader *noffH)
 {
     noffH->noffMagic = WordToHost(noffH->noffMagic);
@@ -49,7 +49,7 @@ SwapHeader (NoffHeader *noffH)
 //----------------------------------------------------------------------
 // AddrSpace::AddrSpace
 // 	Create an address space to run a user program.
-//	Set up the translation from program memory to physical 
+//	Set up the translation from program memory to physical
 //	memory.  For now, this is really simple (1:1), since we are
 //	only uniprogramming, and we have a single unsegmented page table
 //----------------------------------------------------------------------
@@ -66,9 +66,9 @@ AddrSpace::AddrSpace()
 //	pageTable[i].valid = FALSE;
 	pageTable[i].use = FALSE;
 	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  
+	pageTable[i].readOnly = FALSE;
     }
-    
+
     // zero out the entire address space
 //    bzero(kernel->machine->mainMemory, MemorySize);
 }
@@ -96,9 +96,10 @@ AddrSpace::~AddrSpace()
 //	"fileName" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-bool 
-AddrSpace::Load(char *fileName) 
+bool
+AddrSpace::Load(char *fileName)
 {
+    // 讀取出 exe 檔案內容，並且解析資訊到 NoffHeader
     OpenFile *executable = kernel->fileSystem->Open(fileName);
     NoffHeader noffH;
     unsigned int size;
@@ -108,13 +109,13 @@ AddrSpace::Load(char *fileName)
 	return FALSE;
     }
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
-    if ((noffH.noffMagic != NOFFMAGIC) && 
+    if ((noffH.noffMagic != NOFFMAGIC) &&
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
     	SwapHeader(&noffH);
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
 // how big is address space?
-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
+    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
@@ -122,6 +123,8 @@ AddrSpace::Load(char *fileName)
     size = numPages * PageSize;
 
     numPages = divRoundUp(size,PageSize);
+
+    // 填寫每個 pageTable entry 的資訊
     for(unsigned int i=0, j=0; i<numPages; i++){
         pageTable[i].virtualPage = i;
         while(j<NumPhysPages && AddrSpace::usedPhyPage[j] == true)
@@ -148,7 +151,7 @@ AddrSpace::Load(char *fileName)
         DEBUG(dbgAddr, "Initializing code segment.");
 	DEBUG(dbgAddr, noffH.code.virtualAddr << ", " << noffH.code.size);
         	executable->ReadAt(
-		&(kernel->machine->mainMemory[pageTable[noffH.code.virtualAddr/PageSize].physicalPage * PageSize + (noffH.code.virtualAddr%PageSize)]), 
+		&(kernel->machine->mainMemory[pageTable[noffH.code.virtualAddr/PageSize].physicalPage * PageSize + (noffH.code.virtualAddr%PageSize)]),
 			noffH.code.size, noffH.code.inFileAddr);
     }
 	if (noffH.initData.size > 0) {
@@ -171,8 +174,8 @@ AddrSpace::Load(char *fileName)
 //	"fileName" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-void 
-AddrSpace::Execute(char *fileName) 
+void
+AddrSpace::Execute(char *fileName)
 {
     if (!Load(fileName)) {
 	cout << "inside !Load(FileName)" << endl;
@@ -211,7 +214,7 @@ AddrSpace::InitRegisters()
 	machine->WriteRegister(i, 0);
 
     // Initial program counter -- must be location of "Start"
-    machine->WriteRegister(PCReg, 0);	
+    machine->WriteRegister(PCReg, 0);
 
     // Need to also tell MIPS where next instruction is, because
     // of branch delay possibility
@@ -232,7 +235,7 @@ AddrSpace::InitRegisters()
 //	For now, don't need to save anything!
 //----------------------------------------------------------------------
 
-void AddrSpace::SaveState() 
+void AddrSpace::SaveState()
 {
         pageTable=kernel->machine->pageTable;
         numPages=kernel->machine->pageTableSize;
@@ -246,7 +249,7 @@ void AddrSpace::SaveState()
 //      For now, tell the machine where to find the page table.
 //----------------------------------------------------------------------
 
-void AddrSpace::RestoreState() 
+void AddrSpace::RestoreState()
 {
     kernel->machine->pageTable = pageTable;
     kernel->machine->pageTableSize = numPages;

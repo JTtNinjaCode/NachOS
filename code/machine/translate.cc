@@ -1,4 +1,4 @@
-// translate.cc 
+// translate.cc
 //	Routines to translate virtual addresses to physical addresses.
 //	Software sets up a table of legal translations.  We look up
 //	in the table on every memory reference to find the true physical
@@ -12,7 +12,7 @@
 //	Translation lookaside buffer -- associative lookup in the table
 //	to find an entry with the same virtual page #.  If found,
 //	this entry is used for the translation.
-//	If not, it traps to software with an exception. 
+//	If not, it traps to software with an exception.
 //
 //	In practice, the TLB is much smaller than the amount of physical
 //	memory (16 entries is common on a machine that has 1000's of
@@ -26,7 +26,7 @@
 // DO NOT CHANGE -- part of the machine emulation
 //
 // Copyright (c) 1992-1996 The Regents of the University of California.
-// All rights reserved.  See copyright.h for copyright notice and limitation 
+// All rights reserved.  See copyright.h for copyright notice and limitation
 // of liability and disclaimer of warranty provisions.
 
 #include "copyright.h"
@@ -45,7 +45,7 @@ WordToHost(unsigned int word) {
 	 result |= (word << 8) & 0x00ff0000;
 	 result |= (word << 24) & 0xff000000;
 	 return result;
-#else 
+#else
 	 return word;
 #endif /* HOST_IS_BIG_ENDIAN */
 }
@@ -57,7 +57,7 @@ ShortToHost(unsigned short shortword) {
 	 result = (shortword << 8) & 0xff00;
 	 result |= (shortword >> 8) & 0x00ff;
 	 return result;
-#else 
+#else
 	 return shortword;
 #endif /* HOST_IS_BIG_ENDIAN */
 }
@@ -71,7 +71,7 @@ ShortToMachine(unsigned short shortword) { return ShortToHost(shortword); }
 
 //----------------------------------------------------------------------
 // Machine::ReadMem
-//      Read "size" (1, 2, or 4) bytes of virtual memory at "addr" into 
+//      Read "size" (1, 2, or 4) bytes of virtual memory at "addr" into
 //	the location pointed to by "value".
 //
 //   	Returns FALSE if the translation step from virtual to physical memory
@@ -88,9 +88,9 @@ Machine::ReadMem(int addr, int size, int *value)
     int data;
     ExceptionType exception;
     int physicalAddress;
-    
+
     DEBUG(dbgAddr, "Reading VA " << addr << ", size " << size);
-    
+
     exception = Translate(addr, &physicalAddress, size, FALSE);
     if (exception != NoException) {
 	RaiseException(exception, addr);
@@ -101,12 +101,12 @@ Machine::ReadMem(int addr, int size, int *value)
 	data = mainMemory[physicalAddress];
 	*value = data;
 	break;
-	
+
       case 2:
 	data = *(unsigned short *) &mainMemory[physicalAddress];
 	*value = ShortToHost(data);
 	break;
-	
+
       case 4:
 	data = *(unsigned int *) &mainMemory[physicalAddress];
 	*value = WordToHost(data);
@@ -114,7 +114,7 @@ Machine::ReadMem(int addr, int size, int *value)
 
       default: ASSERT(FALSE);
     }
-    
+
     DEBUG(dbgAddr, "\tvalue read = " << *value);
     return (TRUE);
 }
@@ -137,7 +137,7 @@ Machine::WriteMem(int addr, int size, int value)
 {
     ExceptionType exception;
     int physicalAddress;
-     
+
     DEBUG(dbgAddr, "Writing VA " << addr << ", size " << size << ", value " << value);
 
     exception = Translate(addr, &physicalAddress, size, TRUE);
@@ -154,24 +154,24 @@ Machine::WriteMem(int addr, int size, int value)
 	*(unsigned short *) &mainMemory[physicalAddress]
 		= ShortToMachine((unsigned short) (value & 0xffff));
 	break;
-      
+
       case 4:
 	*(unsigned int *) &mainMemory[physicalAddress]
 		= WordToMachine((unsigned int) value);
 	break;
-	
+
       default: ASSERT(FALSE);
     }
-    
+
     return TRUE;
 }
 
 //----------------------------------------------------------------------
 // Machine::Translate
-// 	Translate a virtual address into a physical address, using 
-//	either a page table or a TLB.  Check for alignment and all sorts 
-//	of other errors, and if everything is ok, set the use/dirty bits in 
-//	the translation table entry, and store the translated physical 
+// 	Translate a virtual address into a physical address, using
+//	either a page table or a TLB.  Check for alignment and all sorts
+//	of other errors, and if everything is ok, set the use/dirty bits in
+//	the translation table entry, and store the translated physical
 //	address in "physAddr".  If there was an error, returns the type
 //	of the exception.
 //
@@ -196,23 +196,23 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 	DEBUG(dbgAddr, "Alignment problem at " << virtAddr << ", size " << size);
 	return AddressErrorException;
     }
-    
+
     // we must have either a TLB or a page table, but not both!
-    ASSERT(tlb == NULL || pageTable == NULL);	
-    ASSERT(tlb != NULL || pageTable != NULL);	
+    ASSERT(tlb == NULL || pageTable == NULL);
+    ASSERT(tlb != NULL || pageTable != NULL);
 
 // calculate the virtual page number, and offset within the page,
 // from the virtual address
     vpn = (unsigned) virtAddr / PageSize;
     offset = (unsigned) virtAddr % PageSize;
-    
+
     if (tlb == NULL) {		// => page table => vpn is index into table
-	if (vpn >= pageTableSize) {
-	    DEBUG(dbgAddr, "Illegal virtual page # " << virtAddr);
-	    return AddressErrorException;
-	} else if (!pageTable[vpn].valid) {
-            /* 		Add Page fault code here		*/
-	}
+        if (vpn >= pageTableSize) {
+            DEBUG(dbgAddr, "Illegal virtual page # " << virtAddr);
+            return AddressErrorException;
+        } else if (!pageTable[vpn].valid) {
+                /* 		Add Page fault code here		*/
+        }
 	entry = &pageTable[vpn];
     } else {
         for (entry = NULL, i = 0; i < TLBSize; i++)
@@ -234,9 +234,9 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     }
     pageFrame = entry->physicalPage;
 
-    // if the pageFrame is too big, there is something really wrong! 
-    // An invalid translation was loaded into the page table or TLB. 
-    if (pageFrame >= NumPhysPages) { 
+    // if the pageFrame is too big, there is something really wrong!
+    // An invalid translation was loaded into the page table or TLB.
+    if (pageFrame >= NumPhysPages) {
 	DEBUG(dbgAddr, "Illegal pageframe " << pageFrame);
 	return BusErrorException;
     }
