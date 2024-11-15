@@ -22,6 +22,7 @@ UserProgKernel::UserProgKernel(int argc, char **argv)
 {
     debugUserProg = FALSE;
 	execfileNum=0;
+	mem_algo_flag = MemFIFO;
     for (int i = 1; i < argc; i++) {
 			if (strcmp(argv[i], "-s") == 0) {
 			debugUserProg = TRUE;
@@ -43,9 +44,13 @@ UserProgKernel::UserProgKernel(int argc, char **argv)
 			cout << "	./nachos -s : Print machine status during the machine is on." << endl;
 			cout << "	./nachos -e file1 -e file2 : executing file1 and file2."  << endl;
 		}
+		else if (strcmp(argv[i], "-FIFO") == 0) {
+			mem_algo_flag = MemFIFO;
+		}
+		else if (strcmp(argv[i], "-LRU") == 0) {
+			mem_algo_flag = MemLRU;
+		}
     }
-
-	// TODO: 處理 -FIFO -LRU Flag
 }
 
 //----------------------------------------------------------------------
@@ -96,13 +101,12 @@ UserProgKernel::Run()
 
 	cout << "Total threads number is " << execfileNum << endl;
 	for (int n=1;n<=execfileNum;n++)
-		{
+	{
 		t[n] = new Thread(execfile[n]);
 		t[n]->space = new AddrSpace();
 		t[n]->Fork((VoidFunctionPtr) &ForkExecute, (void *)t[n]);
 		cout << "Thread " << execfile[n] << " is executing." << endl;
-		}
-//	Thread *t1 = new Thread(execfile[1]);
+	}
 //	Thread *t1 = new Thread("../test/test1");
 //	Thread *t2 = new Thread("../test/test2");
 

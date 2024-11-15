@@ -24,6 +24,7 @@
 #include "copyright.h"
 #include "main.h"
 #include "syscall.h"
+#include "translate.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -53,6 +54,14 @@ ExceptionHandler(ExceptionType which)
 {
 	int	type = kernel->machine->ReadRegister(2);
 	int	val;
+
+	int temp;
+	int page_index;
+	int fake_disk_index;
+	TranslationEntry *new_page_entry = nullptr; // this page in Disk
+	TranslationEntry *replaced_page_entry = nullptr; // this page in RAM
+	TranslationEntry *temp_entry = nullptr;
+	Block temp_block;
 
     switch (which) {
 	case SyscallException:
@@ -85,13 +94,55 @@ ExceptionHandler(ExceptionType which)
 	    }
 	    break;
 	case PageFaultException:
-		/*    Page Fault Exception    */
-		// TODO: 在這裡進行 page 替換，如果為 dirty，要寫回 disk，如果不是 dirty 就沒差
-		// 如果 physical frames 沒用完，直接用就好，還不需要找替死鬼來換
-		// 如果排程算法是 LRU，要根據 use
+		std::cout << "badVAddr" << kernel->machine->ReadRegister(BadVAddrReg) << std::endl;
+		std::cout << "page fault" << std::endl;
 
-		// 阿要怎麼跳回 ReadMEM, WriteMEM 後再試一次以繼續執行?
-		break;
+		// 透過想要存取的 Memory 地址，得到它在哪個 page table、它目前被存在硬碟的哪裡
+		page_index = kernel->machine->ReadRegister(BadVAddrReg) / PageSize;
+		fake_disk_index = -(kernel->currentThread->space->pageTable[page_index].physicalPage + 1);
+		new_page_entry = &kernel->currentThread->space->pageTable[page_index];
+
+		// std::cout << "want to put page " << page_index << "to ram, it is current in disk " << fake_disk_index << std::endl;
+
+		// 找到哪個 page 要被換掉，得到它的 entry
+		if (kernel->mem_algo_flag == MemLRU) {
+		}
+		else {
+			// FIFO 會把先放入 RAM 的 entry 儲存到 stack，然後 pop
+			replaced_page_entry = kernel->fifo_entry.front();
+			kernel->fifo_entry.pop();
+		}
+
+		// std::cout << "page " << replaced_page_entry->virtualPage << "want to be replaced, it is currently in frame" << replaced_page_entry->physicalPage << std::endl;
+
+		// 把記憶體內的 page 寫回 disk 內，然後把要被換上的新 page 內容寫到對應的 Frame
+		memcpy(&temp_block, &(kernel->machine->mainMemory[replaced_page_entry->physicalPage * PageSize]), PageSize);
+		memcpy(&(kernel->machine->mainMemory[replaced_page_entry->physicalPage * PageSize]), &(kernel->fake_disk[-(new_page_entry->physicalPage + 1)]), PageSize);
+		memcpy(&(kernel->fake_disk[-(new_page_entry->physicalPage + 1)]), &temp_block, PageSize);
+
+		// 修改換上來的的 TranslationEntry 的狀態
+		new_page_entry->physicalPage = replaced_page_entry->physicalPage;
+		new_page_entry->valid = true;
+		new_page_entry->dirty = false;
+		new_page_entry->readOnly = false;
+		new_page_entry->use = false;
+		// std::cout << "page" << new_page_entry->virtualPage << "has been put into frame" << new_page_entry->physicalPage << std::endl;
+
+		// 修改被換掉的 TranslationEntry 的狀態
+		replaced_page_entry->physicalPage = -(fake_disk_index + 1);
+		replaced_page_entry->dirty = false;
+		replaced_page_entry->readOnly = false;
+		replaced_page_entry->use = false;
+		replaced_page_entry->valid = false;
+		// std::cout << "page" << replaced_page_entry->virtualPage << "has been put into disk" << -(replaced_page_entry->physicalPage + 1) << std::endl;
+		std::cout << "frame " << new_page_entry->physicalPage << "swapped" << std::endl;
+
+		if (kernel->mem_algo_flag == MemLRU) {
+		}
+		else { // FIFO，把新放入的 page 放到 queue
+			kernel->fifo_entry.push(new_page_entry);
+		}
+		return;
 	default:
 	    cerr << "Unexpected user mode exception" << which << "\n";
 	    break;

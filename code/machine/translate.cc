@@ -93,8 +93,8 @@ Machine::ReadMem(int addr, int size, int *value)
 
     exception = Translate(addr, &physicalAddress, size, FALSE);
     if (exception != NoException) {
-	RaiseException(exception, addr);
-	return FALSE;
+        RaiseException(exception, addr);
+        return FALSE;
     }
     switch (size) {
       case 1:
@@ -188,21 +188,20 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     unsigned int vpn, offset;
     TranslationEntry *entry;
     unsigned int pageFrame;
-
     DEBUG(dbgAddr, "\tTranslate " << virtAddr << (writing ? " , write" : " , read"));
 
-// check for alignment errors
+    // check for alignment errors
     if (((size == 4) && (virtAddr & 0x3)) || ((size == 2) && (virtAddr & 0x1))){
-	DEBUG(dbgAddr, "Alignment problem at " << virtAddr << ", size " << size);
-	return AddressErrorException;
+        DEBUG(dbgAddr, "Alignment problem at " << virtAddr << ", size " << size);
+        return AddressErrorException;
     }
 
     // we must have either a TLB or a page table, but not both!
     ASSERT(tlb == NULL || pageTable == NULL);
     ASSERT(tlb != NULL || pageTable != NULL);
 
-// calculate the virtual page number, and offset within the page,
-// from the virtual address
+    // calculate the virtual page number, and offset within the page,
+    // from the virtual address
     vpn = (unsigned) virtAddr / PageSize;
     offset = (unsigned) virtAddr % PageSize;
 
@@ -211,21 +210,22 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
             DEBUG(dbgAddr, "Illegal virtual page # " << virtAddr);
             return AddressErrorException;
         } else if (!pageTable[vpn].valid) {
-                /* 		Add Page fault code here		*/
+            RaiseException(PageFaultException, virtAddr); // 觸發 page fault 後，再重來一次
+            return Translate(virtAddr, physAddr, size, writing);
         }
-	entry = &pageTable[vpn];
+        entry = &pageTable[vpn];
     } else {
         for (entry = NULL, i = 0; i < TLBSize; i++)
     	    if (tlb[i].valid && (tlb[i].virtualPage == vpn)) {
-		entry = &tlb[i];			// FOUND!
-		break;
-	    }
-	if (entry == NULL) {				// not found
-    	    DEBUG(dbgAddr, "Invalid TLB entry for this virtual page!");
-    	    return PageFaultException;		// really, this is a TLB fault,
-						// the page may be in memory,
-						// but not in the TLB
-	}
+                entry = &tlb[i];			// FOUND!
+                break;
+            }
+        if (entry == NULL) {				// not found
+                DEBUG(dbgAddr, "Invalid TLB entry for this virtual page!");
+                return PageFaultException;		// really, this is a TLB fault,
+                            // the page may be in memory,
+                            // but not in the TLB
+        }
     }
 
     if (entry->readOnly && writing) {	// trying to write to a read-only page

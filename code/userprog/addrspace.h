@@ -32,28 +32,17 @@ class AddrSpace {
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch
 
-  private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual
 					// address space
+  private:
 
     bool Load(char *fileName);		// Load the program into memory
 					// return false if not found
 
     void InitRegisters();		// Initialize user-level CPU registers,
 					// before jumping to user code
-
-};
-
-enum AlgoFlag {
-  MemFIFO,
-  MemLRU,
-};
-
-class MemoryManager {
-  public:
-    MemoryManager(AlgoFlag algo_flag);
 
 };
 #endif // ADDRSPACE_H

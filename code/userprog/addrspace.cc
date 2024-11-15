@@ -57,17 +57,18 @@ SwapHeader (NoffHeader *noffH)
 
 AddrSpace::AddrSpace()
 {
-    pageTable = new TranslationEntry[NumPhysPages];
-    for (unsigned int i = 0; i < NumPhysPages; i++) {
-	pageTable[i].virtualPage = i;	// for now, virt page # = phys page #
-	pageTable[i].physicalPage = i;
-//	pageTable[i].physicalPage = 0;
-	pageTable[i].valid = TRUE;
-//	pageTable[i].valid = FALSE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;
-    }
+
+//     pageTable = new TranslationEntry[NumPhysPages];
+//     for (unsigned int i = 0; i < NumPhysPages; i++) {
+// 	pageTable[i].virtualPage = i;	// for now, virt page # = phys page #
+// 	pageTable[i].physicalPage = i;
+// //	pageTable[i].physicalPage = 0;
+// 	pageTable[i].valid = TRUE;
+// //	pageTable[i].valid = FALSE;
+// 	pageTable[i].use = FALSE;
+// 	pageTable[i].dirty = FALSE;
+// 	pageTable[i].readOnly = FALSE;
+//     }
 
     // zero out the entire address space
 //    bzero(kernel->machine->mainMemory, MemorySize);
@@ -119,47 +120,79 @@ AddrSpace::Load(char *fileName)
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
-//	cout << "number of pages of " << fileName<< " is "<<numPages<<endl;
     size = numPages * PageSize;
 
     numPages = divRoundUp(size,PageSize);
 
-    // 填寫每個 pageTable entry 的資訊
-    for(unsigned int i=0, j=0; i<numPages; i++){
-        pageTable[i].virtualPage = i;
-        while(j<NumPhysPages && AddrSpace::usedPhyPage[j] == true)
+    pageTable = new TranslationEntry[numPages];
+    // 嘗試把 VM pages 塞進去 phy pages，如果沒位置了，就先不要放到 RAM，改成放到 Disk 內
+    unsigned int i = 0, j = 0;
+    for(i=0, j=0; i<numPages; i++){
+        pageTable[i].virtualPage = i; // pages index
+        while(j < NumPhysPages && AddrSpace::usedPhyPage[j] == true) // 如果 frame 被占走了，看下一個
             j++;
+        if (j == NumPhysPages) break; // 如果滿了，就跳出迴圈，處理剩下還沒分配到 frames 內的 VM pages
         AddrSpace::usedPhyPage[j] = true;
         pageTable[i].physicalPage = j;
         pageTable[i].valid = true;
         pageTable[i].use = false;
         pageTable[i].dirty = false;
         pageTable[i].readOnly = false;
+        kernel->fifo_entry.push(&pageTable[i]); // 以 FIFO 交換 page 時需要
+    }
+
+    // 跳出迴圈，可能是因為 Phy Frame 滿了，就跳出迴圈，處理剩下的 VM Pages
+    if (j == NumPhysPages) {
+        while (i < numPages) {
+            pageTable[i].virtualPage = i;
+            pageTable[i].physicalPage = -(kernel->fake_disk.size() + 1);
+            pageTable[i].valid = false;
+            pageTable[i].use = false;
+            pageTable[i].dirty = false;
+            pageTable[i].readOnly = false;
+            kernel->pages_in_disk.push_back(&pageTable[i]);
+            kernel->fake_disk.emplace_back(); // 在假硬碟內增加一個 Block
+            i++;
+        }
     }
 
     size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
-						// to run anything too big --
-						// at least until we have
-						// virtual memory
-
     DEBUG(dbgAddr, "Initializing address space: " << numPages << ", " << size);
 
-// then, copy in the code and data segments into memory
+    // 都先複製到 blocks 內，這個 blocks 是假的 Virtual Memory
+    std::vector<Block> blocks(numPages);
+    // then, copy in the code and data segments into memory
 	if (noffH.code.size > 0) {
         DEBUG(dbgAddr, "Initializing code segment.");
-	DEBUG(dbgAddr, noffH.code.virtualAddr << ", " << noffH.code.size);
-        	executable->ReadAt(
-		&(kernel->machine->mainMemory[pageTable[noffH.code.virtualAddr/PageSize].physicalPage * PageSize + (noffH.code.virtualAddr%PageSize)]),
-			noffH.code.size, noffH.code.inFileAddr);
+	    DEBUG(dbgAddr, noffH.code.virtualAddr << ", " << noffH.code.size);
+
+        char *start = (char *)&blocks.at(0) + noffH.code.virtualAddr;
+        executable->ReadAt(start, noffH.code.size, noffH.code.inFileAddr);
+
+        // std::cout << "code section: start:" << noffH.code.virtualAddr << std::endl;
+        // std::cout << "code section: end  :" << noffH.code.virtualAddr + noffH.code.size << std::endl;
     }
+
 	if (noffH.initData.size > 0) {
         DEBUG(dbgAddr, "Initializing data segment.");
-	DEBUG(dbgAddr, noffH.initData.virtualAddr << ", " << noffH.initData.size);
-        executable->ReadAt(
-		&(kernel->machine->mainMemory[pageTable[noffH.initData.virtualAddr/PageSize].physicalPage * PageSize + (noffH.code.virtualAddr%PageSize)]),
-			noffH.initData.size, noffH.initData.inFileAddr);
+	    DEBUG(dbgAddr, noffH.initData.virtualAddr << ", " << noffH.initData.size);
+
+        char *start = (char *)&blocks.at(0) + noffH.initData.virtualAddr;
+        executable->ReadAt(start, noffH.initData.size, noffH.initData.inFileAddr);
+
+        // std::cout << "uninit data section: start:" << noffH.uninitData.virtualAddr << std::endl;
+        // std::cout << "uninit data section: end  :" << noffH.uninitData.virtualAddr + noffH.uninitData.size << std::endl;
+    }
+
+    for (int i = 0; i < blocks.size(); i++) {
+        if (pageTable[i].physicalPage >= 0) { // 在 RAM 裡面
+            int frame_index = pageTable[i].physicalPage;
+            memcpy(&kernel->machine->mainMemory[frame_index * PageSize], &blocks[i], PageSize);
+        } else {
+            int fake_disk_index = -(pageTable[i].physicalPage + 1);
+            memcpy(&kernel->fake_disk[fake_disk_index], &blocks[i], PageSize);
+        }
     }
 
     delete executable;			// close file
