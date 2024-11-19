@@ -18,9 +18,16 @@
 #include "alarm.h"
 #include "machine.h"
 #include <vector>
+#include <list>
+#include <queue>
 
 struct Block{
   unsigned char m[128] = {}; // 128 == PageSize
+};
+
+enum AlgoFlag {
+  MemFIFO,
+  MemLRU,
 };
 
 class ThreadedKernel {
@@ -48,6 +55,9 @@ class ThreadedKernel {
     Statistics *stats;		// performance metrics
     Alarm *alarm;		// the software alarm clock
 
+    AlgoFlag mem_algo_flag;
+    std::queue<TranslationEntry *> fifo_entry;
+    std::list<TranslationEntry*> lru_entry;
     std::vector<TranslationEntry*> pages_in_disk;
     std::vector<Block> fake_disk;
   private:

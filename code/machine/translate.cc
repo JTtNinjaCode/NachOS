@@ -245,5 +245,11 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     *physAddr = pageFrame * PageSize + offset;
     ASSERT((*physAddr >= 0) && ((*physAddr + size) <= MemorySize));
     DEBUG(dbgAddr, "phys addr = " << *physAddr);
+
+    // 到目前為止 Translate 已經成功，因此目前這個 page 是最新被使用的，把它取出後重新放回 lru 尾端
+    kernel->lru_entry.remove(entry);
+    kernel->lru_entry.push_back(entry);
+    ASSERT(entry != nullptr); // Must find entry in LRU list.
+
     return NoException;
 }

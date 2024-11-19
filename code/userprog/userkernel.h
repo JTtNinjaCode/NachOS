@@ -16,12 +16,6 @@
 #include "filesys.h"
 #include "machine.h"
 #include "synchdisk.h"
-#include <queue>
-
-enum AlgoFlag {
-  MemFIFO,
-  MemLRU,
-};
 
 class SynchDisk;
 class UserProgKernel : public ThreadedKernel {
@@ -39,8 +33,7 @@ class UserProgKernel : public ThreadedKernel {
 // These are public for notational convenience.
     Machine *machine;
     FileSystem *fileSystem;
-    AlgoFlag mem_algo_flag;
-    std::queue<TranslationEntry *> fifo_entry;
+
 
 #ifdef FILESYS
     SynchDisk *synchDisk;

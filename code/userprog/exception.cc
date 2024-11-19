@@ -96,7 +96,7 @@ ExceptionHandler(ExceptionType which)
 	case PageFaultException:
 		kernel->stats->numPageFaults += 1;
 
-		std::cout << "badVAddr" << kernel->machine->ReadRegister(BadVAddrReg) << std::endl;
+		// std::cout << "badVAddr" << kernel->machine->ReadRegister(BadVAddrReg) << std::endl;
 		std::cout << "page fault" << std::endl;
 
 		// 透過想要存取的 Memory 地址，得到它在哪個 page table、它目前被存在硬碟的哪裡
@@ -108,6 +108,9 @@ ExceptionHandler(ExceptionType which)
 
 		// 找到哪個 page 要被換掉，得到它的 entry
 		if (kernel->mem_algo_flag == MemLRU) {
+			// LRU list 最前面的 entry 表示最久沒被使用到的
+			replaced_page_entry = kernel->lru_entry.front();
+			kernel->lru_entry.pop_front();
 		}
 		else {
 			// FIFO 會把先放入 RAM 的 entry 儲存到 stack，然後 pop
@@ -139,9 +142,11 @@ ExceptionHandler(ExceptionType which)
 		replaced_page_entry->use = false;
 		replaced_page_entry->valid = false;
 		// std::cout << "page" << replaced_page_entry->virtualPage << "has been put into disk" << -(replaced_page_entry->physicalPage + 1) << std::endl;
-		std::cout << "frame " << new_page_entry->physicalPage << "swapped" << std::endl;
+		std::cout << "frame " << new_page_entry->physicalPage << " swapped" << std::endl;
 
 		if (kernel->mem_algo_flag == MemLRU) {
+    		// 這個 page 才剛被加進來，它原本在 Disk 內，但剛才才被放到 RAM 裡面，因此此 page 必定是最新被使用的且不存在於 LRU list 內，直接放到 LRU list 最後
+			kernel->lru_entry.push_back(new_page_entry);
 		}
 		else { // FIFO，把新放入的 page 放到 queue
 			kernel->fifo_entry.push(new_page_entry);

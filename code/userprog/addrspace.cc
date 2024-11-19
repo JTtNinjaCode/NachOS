@@ -138,7 +138,11 @@ AddrSpace::Load(char *fileName)
         pageTable[i].use = false;
         pageTable[i].dirty = false;
         pageTable[i].readOnly = false;
-        kernel->fifo_entry.push(&pageTable[i]); // 以 FIFO 交換 page 時需要
+        if (kernel->mem_algo_flag == MemFIFO) {
+            kernel->fifo_entry.push(&pageTable[i]); // 以 FIFO 交換 page 時需要
+        } else if (kernel->mem_algo_flag == MemLRU) {
+            kernel->lru_entry.push_back(&pageTable[i]); // 以 LRU 交換 page 時需要
+        }
     }
 
     // 跳出迴圈，可能是因為 Phy Frame 滿了，就跳出迴圈，處理剩下的 VM Pages
@@ -170,8 +174,8 @@ AddrSpace::Load(char *fileName)
         char *start = (char *)&blocks.at(0) + noffH.code.virtualAddr;
         executable->ReadAt(start, noffH.code.size, noffH.code.inFileAddr);
 
-        // std::cout << "code section: start:" << noffH.code.virtualAddr << std::endl;
-        // std::cout << "code section: end  :" << noffH.code.virtualAddr + noffH.code.size << std::endl;
+        std::cout << "code section start:" << noffH.code.virtualAddr << std::endl;
+        std::cout << "code section end  :" << noffH.code.virtualAddr + noffH.code.size << std::endl;
     }
 
 	if (noffH.initData.size > 0) {
@@ -181,8 +185,18 @@ AddrSpace::Load(char *fileName)
         char *start = (char *)&blocks.at(0) + noffH.initData.virtualAddr;
         executable->ReadAt(start, noffH.initData.size, noffH.initData.inFileAddr);
 
-        // std::cout << "uninit data section: start:" << noffH.uninitData.virtualAddr << std::endl;
-        // std::cout << "uninit data section: end  :" << noffH.uninitData.virtualAddr + noffH.uninitData.size << std::endl;
+        std::cout << "init data section start:" << noffH.initData.virtualAddr << std::endl;
+        std::cout << "init data section end  :" << noffH.initData.virtualAddr + noffH.initData.size << std::endl;
+    }
+
+    if (noffH.uninitData.size > 0) {
+        DEBUG(dbgAddr, "Initializing bss segment.");
+	    DEBUG(dbgAddr, noffH.uninitData.virtualAddr << ", " << noffH.uninitData.size);
+
+        // bss 本身裡面就是都初始化為 0，不需要複製
+
+        std::cout << "bss section start:" << noffH.uninitData.virtualAddr << std::endl;
+        std::cout << "bss section end  :" << noffH.uninitData.virtualAddr + noffH.uninitData.size << std::endl;
     }
 
     for (int i = 0; i < blocks.size(); i++) {
