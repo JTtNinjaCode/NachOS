@@ -210,8 +210,7 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
             DEBUG(dbgAddr, "Illegal virtual page # " << virtAddr);
             return AddressErrorException;
         } else if (!pageTable[vpn].valid) {
-            RaiseException(PageFaultException, virtAddr); // 觸發 page fault 後，再重來一次
-            return Translate(virtAddr, physAddr, size, writing);
+            return PageFaultException;
         }
         entry = &pageTable[vpn];
     } else {
