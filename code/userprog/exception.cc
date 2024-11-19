@@ -94,6 +94,8 @@ ExceptionHandler(ExceptionType which)
 	    }
 	    break;
 	case PageFaultException:
+		kernel->stats->numPageFaults += 1;
+
 		std::cout << "badVAddr" << kernel->machine->ReadRegister(BadVAddrReg) << std::endl;
 		std::cout << "page fault" << std::endl;
 
@@ -119,6 +121,8 @@ ExceptionHandler(ExceptionType which)
 		memcpy(&temp_block, &(kernel->machine->mainMemory[replaced_page_entry->physicalPage * PageSize]), PageSize);
 		memcpy(&(kernel->machine->mainMemory[replaced_page_entry->physicalPage * PageSize]), &(kernel->fake_disk[-(new_page_entry->physicalPage + 1)]), PageSize);
 		memcpy(&(kernel->fake_disk[-(new_page_entry->physicalPage + 1)]), &temp_block, PageSize);
+		kernel->stats->numDiskReads += 1;
+		kernel->stats->numDiskWrites += 1;
 
 		// 修改換上來的的 TranslationEntry 的狀態
 		new_page_entry->physicalPage = replaced_page_entry->physicalPage;

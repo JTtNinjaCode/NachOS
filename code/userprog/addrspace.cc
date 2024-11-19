@@ -192,6 +192,7 @@ AddrSpace::Load(char *fileName)
         } else {
             int fake_disk_index = -(pageTable[i].physicalPage + 1);
             memcpy(&kernel->fake_disk[fake_disk_index], &blocks[i], PageSize);
+            kernel->stats->numDiskWrites += 1; // write into fake disk, numDiskWrites++
         }
     }
 
