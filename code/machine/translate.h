@@ -30,7 +30,7 @@
 class TranslationEntry {
   public:
     unsigned int virtualPage;  	// The page number in virtual memory.
-    // 嘗試用負號表達它在 virtual disk 的哪裡，負號取絕對值後 -1 就是儲存在假硬碟的 index
+    // 嘗試用負號表達它在 disk 的哪裡，負號取絕對值後 -1 就是儲存在假硬碟的 index
     int physicalPage;  // The page number in real memory (relative to the
 			//  start of "mainMemory"
     bool valid;         // If this bit is set, the translation is ignored.

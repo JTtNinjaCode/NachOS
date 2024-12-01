@@ -194,7 +194,6 @@ AddrSpace::Load(char *fileName)
 	    DEBUG(dbgAddr, noffH.uninitData.virtualAddr << ", " << noffH.uninitData.size);
 
         // bss 本身裡面就是都初始化為 0，不需要複製
-
         std::cout << "bss section start:" << noffH.uninitData.virtualAddr << std::endl;
         std::cout << "bss section end  :" << noffH.uninitData.virtualAddr + noffH.uninitData.size << std::endl;
     }
